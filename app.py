@@ -1,7 +1,7 @@
 import streamlit as st
-import cv2
 import numpy as np
 from PIL import Image
+from skimage import color, filters, feature
 
 st.set_page_config(layout="wide")
 st.title("Canny Edge Detection - Step-by-Step (Horizontal Visual)")
@@ -12,26 +12,26 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
     img_np = np.array(image)
 
-    # 1. Gaussian Blur
-    blurred = cv2.GaussianBlur(img_np, (5, 5), 1.4)
+    # 1. Grayscale
+    gray = color.rgb2gray(img_np)
 
-    # 2. Grayscale
-    gray = cv2.cvtColor(blurred, cv2.COLOR_RGB2GRAY)
+    # 2. Gaussian Blur
+    blurred = filters.gaussian(gray, sigma=1.4)
 
-    # 3. Sobel X and Sobel Y (digabung sebagai Gradient Magnitude)
-    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    # 3. Sobel X and Y
+    sobel_x = filters.sobel_h(blurred)
+    sobel_y = filters.sobel_v(blurred)
 
     # Gabungkan menjadi Sobel XY
     sobel_xy = np.sqrt(sobel_x**2 + sobel_y**2)
     sobel_xy = (sobel_xy / sobel_xy.max()) * 255
     sobel_xy = sobel_xy.astype(np.uint8)
 
-    # Gradient Angle (dipakai untuk NMS)
+    # 4. Gradient Angle (untuk NMS)
     angle = np.arctan2(sobel_y, sobel_x) * 180 / np.pi
     angle[angle < 0] += 180
 
-    # 4. Non-Max Suppression
+    # Non-Max Suppression
     def non_max_suppression(mag, ang):
         H, W = mag.shape
         result = np.zeros((H, W), dtype=np.uint8)
@@ -68,7 +68,7 @@ if uploaded_file is not None:
 
     nms = non_max_suppression(sobel_xy, angle)
 
-    # 5. Double Thresholding
+    # 5. Double Threshold
     high_threshold = 70
     low_threshold = 30
 
@@ -111,7 +111,7 @@ if uploaded_file is not None:
 
     with cols[1]:
         st.write("**Gaussian Blur**")
-        st.image(blurred)
+        st.image((blurred*255).astype(np.uint8), clamp=True)
 
     with cols[2]:
         st.write("**Sobel XY (Gradient Magnitude)**")
